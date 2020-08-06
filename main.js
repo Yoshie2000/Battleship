@@ -4,7 +4,7 @@
 let gridSize = 10;
 
 // All the ships on the field
-let ship = new Ship();
+let ships = [];
 
 // Temporary data for dragging ships with the mouse
 let dragStatus = {
@@ -16,6 +16,8 @@ function setup() {
     // Create a fullscreen canvas
     createCanvas(windowWidth, windowHeight);
     fullscreen();
+
+    ships = generateRandomShipLayout();
 }
 
 function draw() {
@@ -26,8 +28,88 @@ function draw() {
     drawField();
 
     // Draw the ships
-    ship.draw();
+    for (let ship of ships) {
+        ship.draw();
+    }
 }
+
+//#region Generation
+
+function generateRandomShipLayout() {
+    let shipData = [
+        {
+            width: 2,
+            height: 1
+        },
+        {
+            width: 3,
+            height: 1
+        },
+        {
+            width: 3,
+            height: 1
+        },
+        {
+            width: 4,
+            height: 1
+        },
+        {
+            width: 5,
+            height: 1
+        }
+    ];
+
+    let shipBounds = [];
+
+    for (let shipDataEntry of shipData) {
+        
+        while (true) {
+            // Generate random ship bounds
+            let horizontal = random(0, 1) > 0.5;
+
+            let position = {
+                x: floor(random(0, gridSize - (horizontal ? shipDataEntry.width : shipDataEntry.height))),
+                y: floor(random(0, gridSize - (horizontal ? shipDataEntry.height : shipDataEntry.width)))
+            };
+            let bounds = {
+                startX: position.x,
+                startY: position.y,
+                endX: position.x + (horizontal ? shipDataEntry.width : shipDataEntry.height),
+                endY: position.y + (horizontal ? shipDataEntry.height : shipDataEntry.width)
+            };
+
+            // Check if the bounds collide with any other ship
+            let collides = false;
+            for (let otherShip of shipBounds) {
+                if (boundsIntersect(bounds, otherShip)) {
+                    collides = true;
+                    break;
+                }
+            }
+
+            if (!collides) {
+                shipBounds.push(bounds);
+                break;
+            }
+        }
+
+    }
+
+    // Generate the ship objects from the bounds
+    let ships = [];
+    for (let shipBoundary of shipBounds) {
+        ships.push(new Ship(
+            shipBoundary.startX,
+            shipBoundary.startY,
+            shipBoundary.endX - shipBoundary.startX,
+            shipBoundary.endY - shipBoundary.startY
+        ));
+    }
+
+    return ships;
+}
+
+//#endregion Generation
 
 //#region Field
 
@@ -82,9 +164,11 @@ function mouseClicked() {
     }
     
     // If the cursor is above a ship, start dragging it
-    let shipCanvasBounds = ship.getCanvasBounds();
-    if (rectContains(shipCanvasBounds, mouseX, mouseY)) {
-        startDrag(ship, shipCanvasBounds);
+    for (let ship of ships) {
+        let shipCanvasBounds = ship.getCanvasBounds();
+        if (rectContains(shipCanvasBounds, mouseX, mouseY)) {
+            startDrag(ship, shipCanvasBounds);
+        }
     }
 }
 
@@ -116,6 +200,13 @@ function startDrag(ship, shipCanvasBounds) {
 function stopDrag() {
     // The bounds of the ship if dragging stopped now
     let newShipFieldCoords = canvasCoordsToFieldCoords(mouseX + dragStatus.ship.dragOffsetX, mouseY + dragStatus.ship.dragOffsetY);
+
+    let newShipFieldBounds = {
+        startX: newShipFieldCoords.x,
+        startY: newShipFieldCoords.y,
+        endX: newShipFieldCoords.x + dragStatus.ship.width,
+        endY: newShipFieldCoords.y + dragStatus.ship.height
+    }
     
     // Check if the ship would land in the field
     if (!isInFieldBounds(newShipFieldCoords.x, newShipFieldCoords.y)
@@ -123,6 +214,17 @@ function stopDrag() {
         || !isInFieldBounds(newShipFieldCoords.x, newShipFieldCoords.y + dragStatus.ship.height - 1)
         || !isInFieldBounds(newShipFieldCoords.x + dragStatus.ship.width - 1, newShipFieldCoords.y + dragStatus.ship.height - 1))
         return;
+
+    // Check if the ship collides with any other ships
+    for (let otherShip of ships) {
+        if (otherShip.dragging) {
+            continue;
+        }
+
+        if (boundsIntersect(newShipFieldBounds, otherShip.getFieldBounds())) {
+            return;
+        }
+    }
 
     dragStatus.dragging = false;
     dragStatus.ship.stopDrag(newShipFieldCoords);
@@ -132,6 +234,19 @@ function stopDrag() {
 //#endregion Ship Drag
 
 //#region Geometry
+
+function boundsIntersect(bounds1, bounds2) {
+    let topEdge1 = bounds1.endY;
+    let rightEdge1 = bounds1.endX;
+    let leftEdge1 = bounds1.startX;
+    let bottomEdge1 = bounds1.startY;
+    let topEdge2 = bounds2.endY;
+    let rightEdge2 = bounds2.endX;
+    let leftEdge2 = bounds2.startX;
+    let bottomEdge2 = bounds2.startY;
+
+    return leftEdge1 < rightEdge2 && rightEdge1 > leftEdge2 && bottomEdge1 < topEdge2 && topEdge1 > bottomEdge2;
+}
 
 // Checks if the coordinates are inside of the field
 function isInFieldBounds(x, y) {

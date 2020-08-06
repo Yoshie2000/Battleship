@@ -1,12 +1,12 @@
 class Ship {
 
     // Set up the variables
-    constructor() {
-        this.width = 1;
-        this.height = 3;
+    constructor(x, y, width, height) {
+        this.width = width;
+        this.height = height;
 
-        this.fieldX = 5;
-        this.fieldY = 2;
+        this.fieldX = x;
+        this.fieldY = y;
 
         this.onField = false;
         this.dragging = false;
@@ -44,7 +44,16 @@ class Ship {
                 strokeWeight(1);
                 fill(0);
 
-                rect(canvasCoords.x, canvasCoords.y, gridCellSize, gridCellSize);
+                // Fill the line towards the bottom if another tile will be drawn there
+                if (shipTileY - this.fieldY < this.height - 1) {
+                    rect(canvasCoords.x + 2, canvasCoords.y + 2, gridCellSize - 4, gridCellSize);
+                }
+                // Fill the line towards the right if another tile will be drawn there
+                else if (shipTileX - this.fieldX < this.width - 1) {
+                    rect(canvasCoords.x + 2, canvasCoords.y + 2, gridCellSize, gridCellSize - 4);
+                } else {
+                    rect(canvasCoords.x + 2, canvasCoords.y + 2, gridCellSize - 4, gridCellSize - 4);
+                }
 
             }
         }
