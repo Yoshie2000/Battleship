@@ -44,6 +44,7 @@ class Ship {
 
         push();
 
+        // Calculate the rotation for the animation
         if (this.rotateAnimation) {
             if (this.rotateAnimationTimer >= this.rotateAnimationTime) {
                 this.rotateAnimation = false;
@@ -52,13 +53,16 @@ class Ship {
                 this.rotateAnimationTimer += deltaTime / 1000;
                 let timeRatio = this.easeInOut(this.rotateAnimationTimer / this.rotateAnimationTime);
 
-                translate(mouseX, mouseY);
+                let translateX = mouseX - this.dragOffsetX * pow(timeRatio, 7);
+                let translateY = mouseY - this.dragOffsetY * pow(timeRatio, 7);
+
+                translate(translateX, translateY);
 
                 let rotation = -HALF_PI + (timeRatio * HALF_PI);
                 rotate(rotation);
 
-                animationOffset.x -= mouseX;
-                animationOffset.y -= mouseY;
+                animationOffset.x -= translateX;
+                animationOffset.y -= translateY;
             }
         }
 
