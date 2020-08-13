@@ -3,8 +3,46 @@
 // How many grid cells per axis
 let gridSize = 10;
 
-// All the ships on the field
+// All the ships on player 1s field
 let ships = [];
+
+// All the ships on player 2s field
+let otherShips = [];
+
+// The field data
+let fieldData = [];
+let otherFieldData = [];
+
+let attackData = [
+    {
+        x: -1,
+        y: -1,
+        i: -1
+    }
+];
+
+// -1: Game hasn't started yet; 0: Player 1; 1: Player 2
+let currentPlayer = -1;
+let gameOver = -1;
+
+// The data for how the ships should be generated
+let shipData = [
+    {
+        width: 2, height: 1
+    },
+    {
+        width: 3, height: 1
+    },
+    {
+        width: 3, height: 1
+    },
+    {
+        width: 4, height: 1
+    },
+    {
+        width: 5, height: 1
+    }
+];
 
 // Temporary data for dragging ships with the mouse
 let dragStatus = {
@@ -17,48 +55,145 @@ function setup() {
     createCanvas(windowWidth, windowHeight);
     fullscreen();
 
-    ships = generateRandomShipLayout();
+    ships = generateRandomShipLayout(0);
+    otherShips = generateRandomShipLayout(1);
+
+    for (let x = 0; x < gridSize; x++) {
+        fieldData.push([]);
+        otherFieldData.push([]);
+        for (let y = 0; y < gridSize; y++) {
+            fieldData[x][y] = 0;
+            otherFieldData[x][y] = 0;
+        }
+    }
+
 }
 
 function draw() {
+
+    if (currentPlayer != -1) {
+        gameOver = checkForGameOver();
+        if (gameOver != -1) {
+            console.log("PLAYER " + (gameOver + 1) + " GAME OVER");
+            noLoop();
+        }
+    }
+
     // Blue background
-    background(0, 180, 255);
+    background(0, 90, 180);
 
     // Draw the field
-    drawField();
+    drawFields();
 
     // Draw the ships
     for (let ship of ships) {
         ship.draw();
     }
+    /*for (let ship of otherShips) {
+        ship.draw();
+    }*/
+
+    // Draw the data
+    drawData();
 }
+
+//#region Attack
+
+function shootCell(x, y, fieldIndex) {
+    let currentAttack = {
+        x: x,
+        y: y,
+        i: fieldIndex
+    };
+
+    for (let oldAttack of attackData) {
+        if (oldAttack.x == currentAttack.x && oldAttack.y == currentAttack.y && oldAttack.i == currentAttack.i) {
+            return false;
+        }
+    }
+
+    currentPlayer = (currentPlayer + 1) % 2;
+
+    let shipsToCheck = fieldIndex == 0 ? ships : otherShips;
+
+    attackData.push(currentAttack);
+
+    for (let ship of shipsToCheck) {
+        if (rectContainsNoEdges(ship.getFieldBounds(), x, y)) {
+            if (fieldIndex == 0) {
+                fieldData[x][y] = 2;
+            } else {
+                otherFieldData[x][y] = 2;
+            }
+            currentPlayer = (currentPlayer + 1) % 2;
+            return true;
+        }
+    }
+
+    if (fieldIndex == 0) {
+        fieldData[x][y] = 1;
+    } else {
+        otherFieldData[x][y] = 1;
+    }
+
+    return true;
+}
+
+function aiAttack(fieldIndex) {
+    // Randomly hit an unhit cell
+    while (!shootCell(floor(random(gridSize)), floor(random(gridSize)), fieldIndex)) {
+        console.log("already hit");
+    }
+}
+
+function checkForGameOver() {
+
+    let isGameOver = true;
+    for (let ship of ships) {
+        let bounds = ship.getFieldBounds();
+
+        for (let x = bounds.startX; x < bounds.endX; x++) {
+            for (let y = bounds.startY; y < bounds.endY; y++) {
+                let cellData = fieldData[x][y];
+
+                if (cellData != 2) {
+                    isGameOver = false;
+                }
+            }
+        }
+    }
+
+    if (isGameOver) {
+        return 0;
+    }
+
+    isGameOver = true;
+    for (let ship of otherShips) {
+        let bounds = ship.getFieldBounds();
+
+        for (let x = bounds.startX; x < bounds.endX; x++) {
+            for (let y = bounds.startY; y < bounds.endY; y++) {
+                let cellData = otherFieldData[x][y];
+                
+                if (cellData != 2) {
+                    isGameOver = false;
+                }
+            }
+        }
+    }
+
+    if (isGameOver) {
+        return 1;
+    }
+
+    return -1;
+}
+
+//#endregion Attack
 
 //#region Generation
 
-function generateRandomShipLayout() {
-    let shipData = [
-        {
-            width: 2,
-            height: 1
-        },
-        {
-            width: 3,
-            height: 1
-        },
-        {
-            width: 3,
-            height: 1
-        },
-        {
-            width: 4,
-            height: 1
-        },
-        {
-            width: 5,
-            height: 1
-        }
-    ];
-
+function generateRandomShipLayout(fieldIndex) {
     let shipBounds = [];
 
     for (let shipDataEntry of shipData) {
@@ -102,7 +237,8 @@ function generateRandomShipLayout() {
             shipBoundary.startX,
             shipBoundary.startY,
             shipBoundary.endX - shipBoundary.startX,
-            shipBoundary.endY - shipBoundary.startY
+            shipBoundary.endY - shipBoundary.startY,
+            fieldIndex
         ));
     }
 
@@ -113,43 +249,102 @@ function generateRandomShipLayout() {
 
 //#region Field
 
-function drawField() {
+function drawData() {
     let gridCellSize = getGridCellSize();
 
-    // The offset from the top left of the browser window
-    let xOffset = (width - (gridCellSize * gridSize)) / 2;
-    let yOffset = (height - (gridCellSize * gridSize)) / 2;
+    for (let i = 0; i < 2; i++) {
 
-    for (let x = 0; x < gridSize; x++) {
-        for (let y = 0; y < gridSize; y++) {
+        for (let x = 0; x < gridSize; x++) {
+            for (let y = 0; y < gridSize; y++) {
 
-            // White, thin stroke
-            stroke(255);
-            fill(255);
-            strokeWeight(1);
+                let offset = fieldCoordsToCanvasCoords(x, y, i);
 
-            // Text configuration
-            textAlign(CENTER, CENTER);
-            textSize(gridCellSize * 0.75);
+                let cellData = i == 0 ? fieldData[x][y] : otherFieldData[x][y];
 
-            // Draw the horizontal text (1 2 3 4 .. gridSize)
-            if (y == 0) {
-                text(x + 1, x * gridCellSize + xOffset + gridCellSize / 2, y * gridCellSize + yOffset - gridCellSize / 2);
+                if (cellData == 1) {
+                    stroke(0, 255, 0);
+                    strokeWeight(10);
+                    point(offset.x + gridCellSize / 2, offset.y + gridCellSize / 2);
+                } else if (cellData == 2) {
+                    stroke(255, 0, 0);
+                    strokeWeight(5);
+                    line(offset.x + gridCellSize / 4, offset.y + gridCellSize / 4, offset.x + gridCellSize * 3 / 4, offset.y + gridCellSize * 3 / 4);
+                    line(offset.x + gridCellSize / 4, offset.y + gridCellSize * 3 / 4, offset.x + gridCellSize * 3 / 4, offset.y + gridCellSize / 4);
+                }
+
             }
-            // Draw the vertical text (A B C D .. alphabet(gridSize))
-            if (x == 0) {
-                text(getLetter(y + 1), x * gridCellSize + xOffset - gridCellSize / 2, y * gridCellSize + yOffset + gridCellSize / 2);
-            }
-
-            // White, thicker stroke, no fill for the grid
-            stroke(255);
-            strokeWeight(5);
-            noFill();
-
-            rect(x * gridCellSize + xOffset, y * gridCellSize + yOffset, gridCellSize, gridCellSize);
-
         }
+
     }
+
+}
+
+function drawFields() {
+    let gridCellSize = getGridCellSize();
+
+    // White, thin stroke
+    stroke(255);
+    fill(255);
+    strokeWeight(1);
+
+    // Text configuration
+    textAlign(CENTER, CENTER);
+    textSize(25);
+
+    if (gameOver == 0) {
+        text("You lost! What a shame...", width / 2, 50);
+    } else if (gameOver == 1) {
+        text("You won! Congratulations!", width / 2, 50);
+    } else if (currentPlayer == -1) {
+        text("You're Player 1. You can move your ships around as you like and rotate them with 'R'", width / 2, 50);
+        text("Hit ENTER to start the game", width / 2, 80);
+    } else if (currentPlayer == 0) {
+        text("It is your turn. Click on any spot on your enemy field to shoot at it", width / 2, 50);
+    } else if (currentPlayer == 1) {
+        text("Your enemy is currently choosing his move... Press any key to continue", width / 2, 50);
+    }
+
+    for (let i = 0; i < 2; i++) {
+
+        for (let x = 0; x < gridSize; x++) {
+            for (let y = 0; y < gridSize; y++) {
+
+                let offset = fieldCoordsToCanvasCoords(x, y, i);
+
+                // White, thin stroke
+                stroke(255);
+                fill(255);
+                strokeWeight(1);
+
+                // Text configuration
+                textAlign(CENTER, CENTER);
+                textSize(gridCellSize * 0.75);
+
+                // Draw the horizontal text (1 2 3 4 .. gridSize)
+                if (y == 0) {
+                    text(x + 1, offset.x + gridCellSize / 2, offset.y - gridCellSize / 2);
+
+                    if (x == floor(gridSize / 2)) {
+                        text(`Player ${i + 1}`, offset.x, offset.y - gridCellSize * 2);
+                    }
+
+                }
+                // Draw the vertical text (A B C D .. alphabet(gridSize))
+                if (x == 0) {
+                    text(getLetter(y + 1), offset.x - gridCellSize / 2, offset.y + gridCellSize / 2);
+                }
+
+                // White, thicker stroke, no fill for the grid
+                stroke(255);
+                strokeWeight(5);
+                noFill();
+
+                rect(offset.x, offset.y, gridCellSize, gridCellSize);
+            }
+        }
+
+    }
+
 }
 
 //#endregion Field
@@ -157,6 +352,22 @@ function drawField() {
 //#region Mouse
 
 function mouseClicked() {
+
+    // Current player can attack
+    if (currentPlayer == 0) {
+        let otherFieldCoords = canvasCoordsToFieldCoords(mouseX, mouseY, true, 1);
+
+        if (isInFieldBounds(otherFieldCoords.x, otherFieldCoords.y)) {
+            shootCell(otherFieldCoords.x, otherFieldCoords.y, 1);
+        }
+
+    }
+
+    // Don't allow dragging once the game starts
+    if (currentPlayer != -1) {
+        return;
+    }
+
     // When in drag mode, try to exit
     if (dragStatus.dragging) {
         stopDrag();
@@ -180,6 +391,10 @@ function keyPressed() {
     // Rotate the current dragged ship when "R" is pressed
     if (dragStatus.dragging && (key == "r" || key == "R")) {
         dragStatus.ship.rotate();
+    } else if (currentPlayer == 1) {
+        aiAttack(0);
+    } else if (keyCode == ENTER) {
+        currentPlayer = 0;
     }
 }
 
@@ -198,6 +413,10 @@ function startDrag(ship, shipCanvasBounds) {
 }
 
 function stopDrag() {
+    if (dragStatus.ship.rotateAnimation) {
+        return;
+    }
+
     // The bounds of the ship if dragging stopped now
     let newShipFieldCoords = canvasCoordsToFieldCoords(mouseX + dragStatus.ship.dragOffsetX, mouseY + dragStatus.ship.dragOffsetY);
 
@@ -262,39 +481,67 @@ function rectContains(bounds, x, y) {
     return bounds.startX <= x && bounds.startY <= y && bounds.endX >= x && bounds.endY >= y;
 }
 
+function rectContainsNoEdges(bounds, x, y) {
+    return bounds.startX <= x && bounds.startY <= y && bounds.endX > x && bounds.endY > y;
+}
+
+function rotateAroundOrigin(px, py, angle) {
+    let radians = (Math.PI / -180) * angle;
+    let cos = Math.cos(radians);
+    let sin = Math.sin(radians);
+    return {
+        x: px * cos + py * sin,
+        y: py * cos + px * sin
+    };
+}
+
 //#endregion Geometry Calculations
 
 //#region Canvas
 
-// Translates field coordinates to canvas coordinates
-function fieldCoordsToCanvasCoords(x, y) {
+function getOffset(fieldIndex) {
     let gridCellSize = getGridCellSize();
 
     let xOffset = (width - (gridCellSize * gridSize)) / 2;
     let yOffset = (height - (gridCellSize * gridSize)) / 2;
 
+    if (fieldIndex == 0 || fieldIndex == undefined) {
+        xOffset -= gridSize * gridCellSize / 2 + 50;
+    } else {
+        xOffset += gridSize * gridCellSize / 2 + 50;
+    }
+
     return {
-        x: x * gridCellSize + xOffset,
-        y: y * gridCellSize + yOffset
+        x: xOffset,
+        y: yOffset
+    };
+}
+
+// Translates field coordinates to canvas coordinates
+function fieldCoordsToCanvasCoords(x, y, fieldIndex) {
+    let gridCellSize = getGridCellSize();
+    let offset = getOffset(fieldIndex);
+
+    return {
+        x: x * gridCellSize + offset.x,
+        y: y * gridCellSize + offset.y
     };
 }
 
 // Translates canvas coordinates to field coordinates
-function canvasCoordsToFieldCoords(x, y, floorResult) {
+function canvasCoordsToFieldCoords(x, y, floorResult, fieldIndex) {
     let gridCellSize = getGridCellSize();
-
-    let xOffset = (width - (gridCellSize * gridSize)) / 2;
-    let yOffset = (height - (gridCellSize * gridSize)) / 2;
+    let offset = getOffset(fieldIndex);
 
     return {
-        x: floorResult ? floor((x - xOffset) / gridCellSize) : round((x - xOffset) / gridCellSize),
-        y: floorResult ? floor((y - yOffset) / gridCellSize) : round((y - yOffset) / gridCellSize)
+        x: floorResult ? floor((x - offset.x) / gridCellSize) : round((x - offset.x) / gridCellSize),
+        y: floorResult ? floor((y - offset.y) / gridCellSize) : round((y - offset.y) / gridCellSize)
     };
 }
 
 // Calculates the size of one grid cell
 function getGridCellSize() {
-    return (min(width, height) - 250) / gridSize;
+    return (min(width, height) / 2 - 50) / gridSize;
 }
 
 // Returns the n-th letter of the alphabet (starting at 0)

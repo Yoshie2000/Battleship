@@ -3,12 +3,13 @@
 class Ship {
 
     // Set up the variables
-    constructor(x, y, width, height) {
+    constructor(x, y, width, height, fieldIndex) {
         this.width = width;
         this.height = height;
 
         this.fieldX = x;
         this.fieldY = y;
+        this.fieldIndex = fieldIndex;
 
         this.onField = false;
         this.dragging = false;
@@ -26,6 +27,10 @@ class Ship {
         this.rotateAnimation = false;
         this.rotateAnimationTime = 0.2;
         this.rotateAnimationTimer = 0;
+        this.afterRotationDragOffset = {
+            x: 0,
+            y: 0
+        };
     }
 
     //#region Drawing
@@ -46,19 +51,36 @@ class Ship {
 
         // Calculate the rotation for the animation
         if (this.rotateAnimation) {
+
             if (this.rotateAnimationTimer >= this.rotateAnimationTime) {
                 this.rotateAnimation = false;
                 this.rotateAnimationTimer = 0;
+
+                // Store the old width and height
+                let oldWidth = this.width;
+                let oldHeight = this.height;
+
+                // Switch width and height around
+                this.width = oldHeight;
+                this.height = oldWidth;
+
+                this.dragOffsetX = this.afterRotationDragOffset.x;
+                this.dragOffsetY = -this.afterRotationDragOffset.y;
+
+                this.afterRotationDragOffset = {
+                    x: 0,
+                    y: 0
+                };
+
             } else {
                 this.rotateAnimationTimer += deltaTime / 1000;
                 let timeRatio = this.easeInOut(this.rotateAnimationTimer / this.rotateAnimationTime);
 
-                let translateX = mouseX - this.dragOffsetX * pow(timeRatio, 7);
-                let translateY = mouseY - this.dragOffsetY * pow(timeRatio, 7);
-
+                let translateX = mouseX;
+                let translateY = mouseY;
                 translate(translateX, translateY);
 
-                let rotation = -HALF_PI + (timeRatio * HALF_PI);
+                let rotation = timeRatio * HALF_PI;
                 rotate(rotation);
 
                 animationOffset.x -= translateX;
@@ -91,7 +113,7 @@ class Ship {
                         x: this.canvasX + this.dragOffsetX + (shipTileX - this.fieldX) * gridCellSize,
                         y: this.canvasY + this.dragOffsetY + (shipTileY - this.fieldY) * gridCellSize
                     }
-                    : fieldCoordsToCanvasCoords(shipTileX, shipTileY);
+                    : fieldCoordsToCanvasCoords(shipTileX, shipTileY, this.fieldIndex);
                 canvasCoords.x += animationOffset.x;
                 canvasCoords.y += animationOffset.y;
 
@@ -100,8 +122,12 @@ class Ship {
                 strokeWeight(1);
                 fill(0);
 
+                // Fill the lines towards the bottom and right
+                if (shipTileY - this.fieldY < this.height - 1 && shipTileX - this.fieldX < this.width - 1) {
+                    rect(canvasCoords.x + 2, canvasCoords.y + 2, gridCellSize, gridCellSize);
+                }
                 // Fill the line towards the bottom if another tile will be drawn there
-                if (shipTileY - this.fieldY < this.height - 1) {
+                else if (shipTileY - this.fieldY < this.height - 1) {
                     rect(canvasCoords.x + 2, canvasCoords.y + 2, gridCellSize - 4, gridCellSize);
                 }
                 // Fill the line towards the right if another tile will be drawn there
@@ -137,7 +163,7 @@ class Ship {
             x: this.canvasX + this.dragOffsetX,
             y: this.canvasY + this.dragOffsetY
         }
-        this.stopDragAnimationDestination = fieldCoordsToCanvasCoords(newFieldCoords.x, newFieldCoords.y);
+        this.stopDragAnimationDestination = fieldCoordsToCanvasCoords(newFieldCoords.x, newFieldCoords.y, this.fieldIndex);
     }
 
     //#endregion Dragging
@@ -145,24 +171,14 @@ class Ship {
     //#region Geometry
 
     rotate() {
-        // Store the old width and height
-        let oldWidth = this.width;
-        let oldHeight = this.height;
-
-        // Switch width and height around
-        this.width = oldHeight;
-        this.height = oldWidth;
-
-        // Calculate the ratio between the drag offset and width / height
-        let dragOffsetRatioX = this.dragOffsetX / oldWidth;
-        let dragOffsetRatioY = this.dragOffsetY / oldHeight;
-
-        // Apply that ratio to the updated width and height
-        this.dragOffsetX = this.width * dragOffsetRatioX;
-        this.dragOffsetY = this.height * dragOffsetRatioY;
-
         // Start animation
         this.rotateAnimation = true;
+
+        this.afterRotationDragOffset = rotateAroundOrigin(
+            this.canvasX + this.dragOffsetX - mouseX,
+            this.canvasY + this.dragOffsetY + this.height * getGridCellSize() - mouseY,
+            90
+        );
     }
 
     getFieldBounds() {
@@ -176,7 +192,7 @@ class Ship {
     }
 
     getCanvasBounds() {
-        let canvasCoords = fieldCoordsToCanvasCoords(this.fieldX, this.fieldY);
+        let canvasCoords = fieldCoordsToCanvasCoords(this.fieldX, this.fieldY, this.fieldIndex);
         let gridCellSize = getGridCellSize();
 
         // The rectangle of the ship inside the canvas
