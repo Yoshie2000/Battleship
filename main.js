@@ -13,34 +13,39 @@ let otherShips = [];
 let fieldData = [];
 let otherFieldData = [];
 
-let attackData = [
-    {
-        x: -1,
-        y: -1,
-        i: -1
-    }
-];
+let attackData = [{
+    x: -1,
+    y: -1,
+    i: -1
+}];
 
 // -1: Game hasn't started yet; 0: Player 1; 1: Player 2
 let currentPlayer = -1;
 let gameOver = -1;
 
+let aiTurnStarted = -1;
+let playerFinished = false;
+
 // The data for how the ships should be generated
-let shipData = [
-    {
-        width: 2, height: 1
+let shipData = [{
+        width: 2,
+        height: 1
     },
     {
-        width: 3, height: 1
+        width: 3,
+        height: 1
     },
     {
-        width: 3, height: 1
+        width: 3,
+        height: 1
     },
     {
-        width: 4, height: 1
+        width: 4,
+        height: 1
     },
     {
-        width: 5, height: 1
+        width: 5,
+        height: 1
     }
 ];
 
@@ -71,6 +76,11 @@ function setup() {
 
 function draw() {
 
+    if (playerFinished && aiTurnStarted <= frameCount - 20) {
+        playerFinished = false;
+        aiAttack(0);
+    }
+
     if (currentPlayer != -1) {
         gameOver = checkForGameOver();
         if (gameOver != -1) {
@@ -95,101 +105,40 @@ function draw() {
 
     // Draw the data
     drawData();
-}
 
-//#region Attack
+    // Draw probability overlay
 
-function shootCell(x, y, fieldIndex) {
-    let currentAttack = {
-        x: x,
-        y: y,
-        i: fieldIndex
-    };
+    let probabilityData = getHighestProbabilityCell(1);
+    let gridCellSize = getGridCellSize();
 
-    for (let oldAttack of attackData) {
-        if (oldAttack.x == currentAttack.x && oldAttack.y == currentAttack.y && oldAttack.i == currentAttack.i) {
-            return false;
+    let highestColor = color(255, 0, 0);
+    let lowestColor = color(0, 255, 0);
+
+    for (let x = 0; x < gridSize; x++) {
+        for (let y = 0; y < gridSize; y++) {
+            if (otherFieldData[x][y] != 0)
+                continue;
+
+            let coords = fieldCoordsToCanvasCoords(x, y, 1);
+
+            textSize(10);
+            strokeWeight(1);
+
+            let currentColor = lerpColor(lowestColor, highestColor, pow(probabilityData.probabilityMap[x][y] / probabilityData.probability, 5));
+
+            stroke(currentColor);
+            fill(currentColor);
+
+            rect(coords.x + 5, coords.y + 5, gridCellSize - 10, gridCellSize - 10);
+
+            stroke(255);
+            fill(255);
+
+            text(round(probabilityData.probabilityMap[x][y] * 100, 1), coords.x + gridCellSize / 2, coords.y + gridCellSize / 2);
         }
     }
 
-    currentPlayer = (currentPlayer + 1) % 2;
-
-    let shipsToCheck = fieldIndex == 0 ? ships : otherShips;
-
-    attackData.push(currentAttack);
-
-    for (let ship of shipsToCheck) {
-        if (rectContainsNoEdges(ship.getFieldBounds(), x, y)) {
-            if (fieldIndex == 0) {
-                fieldData[x][y] = 2;
-            } else {
-                otherFieldData[x][y] = 2;
-            }
-            currentPlayer = (currentPlayer + 1) % 2;
-            return true;
-        }
-    }
-
-    if (fieldIndex == 0) {
-        fieldData[x][y] = 1;
-    } else {
-        otherFieldData[x][y] = 1;
-    }
-
-    return true;
 }
-
-function aiAttack(fieldIndex) {
-    // Randomly hit an unhit cell
-    while (!shootCell(floor(random(gridSize)), floor(random(gridSize)), fieldIndex)) {
-        console.log("already hit");
-    }
-}
-
-function checkForGameOver() {
-
-    let isGameOver = true;
-    for (let ship of ships) {
-        let bounds = ship.getFieldBounds();
-
-        for (let x = bounds.startX; x < bounds.endX; x++) {
-            for (let y = bounds.startY; y < bounds.endY; y++) {
-                let cellData = fieldData[x][y];
-
-                if (cellData != 2) {
-                    isGameOver = false;
-                }
-            }
-        }
-    }
-
-    if (isGameOver) {
-        return 0;
-    }
-
-    isGameOver = true;
-    for (let ship of otherShips) {
-        let bounds = ship.getFieldBounds();
-
-        for (let x = bounds.startX; x < bounds.endX; x++) {
-            for (let y = bounds.startY; y < bounds.endY; y++) {
-                let cellData = otherFieldData[x][y];
-                
-                if (cellData != 2) {
-                    isGameOver = false;
-                }
-            }
-        }
-    }
-
-    if (isGameOver) {
-        return 1;
-    }
-
-    return -1;
-}
-
-//#endregion Attack
 
 //#region Generation
 
@@ -197,7 +146,7 @@ function generateRandomShipLayout(fieldIndex) {
     let shipBounds = [];
 
     for (let shipDataEntry of shipData) {
-        
+
         while (true) {
             // Generate random ship bounds
             let horizontal = random(0, 1) > 0.5;
@@ -247,159 +196,6 @@ function generateRandomShipLayout(fieldIndex) {
 
 //#endregion Generation
 
-//#region Field
-
-function drawData() {
-    let gridCellSize = getGridCellSize();
-
-    for (let i = 0; i < 2; i++) {
-
-        for (let x = 0; x < gridSize; x++) {
-            for (let y = 0; y < gridSize; y++) {
-
-                let offset = fieldCoordsToCanvasCoords(x, y, i);
-
-                let cellData = i == 0 ? fieldData[x][y] : otherFieldData[x][y];
-
-                if (cellData == 1) {
-                    stroke(0, 255, 0);
-                    strokeWeight(10);
-                    point(offset.x + gridCellSize / 2, offset.y + gridCellSize / 2);
-                } else if (cellData == 2) {
-                    stroke(255, 0, 0);
-                    strokeWeight(5);
-                    line(offset.x + gridCellSize / 4, offset.y + gridCellSize / 4, offset.x + gridCellSize * 3 / 4, offset.y + gridCellSize * 3 / 4);
-                    line(offset.x + gridCellSize / 4, offset.y + gridCellSize * 3 / 4, offset.x + gridCellSize * 3 / 4, offset.y + gridCellSize / 4);
-                }
-
-            }
-        }
-
-    }
-
-}
-
-function drawFields() {
-    let gridCellSize = getGridCellSize();
-
-    // White, thin stroke
-    stroke(255);
-    fill(255);
-    strokeWeight(1);
-
-    // Text configuration
-    textAlign(CENTER, CENTER);
-    textSize(25);
-
-    if (gameOver == 0) {
-        text("You lost! What a shame...", width / 2, 50);
-    } else if (gameOver == 1) {
-        text("You won! Congratulations!", width / 2, 50);
-    } else if (currentPlayer == -1) {
-        text("You're Player 1. You can move your ships around as you like and rotate them with 'R'", width / 2, 50);
-        text("Hit ENTER to start the game", width / 2, 80);
-    } else if (currentPlayer == 0) {
-        text("It is your turn. Click on any spot on your enemy field to shoot at it", width / 2, 50);
-    } else if (currentPlayer == 1) {
-        text("Your enemy is currently choosing his move... Press any key to continue", width / 2, 50);
-    }
-
-    for (let i = 0; i < 2; i++) {
-
-        for (let x = 0; x < gridSize; x++) {
-            for (let y = 0; y < gridSize; y++) {
-
-                let offset = fieldCoordsToCanvasCoords(x, y, i);
-
-                // White, thin stroke
-                stroke(255);
-                fill(255);
-                strokeWeight(1);
-
-                // Text configuration
-                textAlign(CENTER, CENTER);
-                textSize(gridCellSize * 0.75);
-
-                // Draw the horizontal text (1 2 3 4 .. gridSize)
-                if (y == 0) {
-                    text(x + 1, offset.x + gridCellSize / 2, offset.y - gridCellSize / 2);
-
-                    if (x == floor(gridSize / 2)) {
-                        text(`Player ${i + 1}`, offset.x, offset.y - gridCellSize * 2);
-                    }
-
-                }
-                // Draw the vertical text (A B C D .. alphabet(gridSize))
-                if (x == 0) {
-                    text(getLetter(y + 1), offset.x - gridCellSize / 2, offset.y + gridCellSize / 2);
-                }
-
-                // White, thicker stroke, no fill for the grid
-                stroke(255);
-                strokeWeight(5);
-                noFill();
-
-                rect(offset.x, offset.y, gridCellSize, gridCellSize);
-            }
-        }
-
-    }
-
-}
-
-//#endregion Field
-
-//#region Mouse
-
-function mouseClicked() {
-
-    // Current player can attack
-    if (currentPlayer == 0) {
-        let otherFieldCoords = canvasCoordsToFieldCoords(mouseX, mouseY, true, 1);
-
-        if (isInFieldBounds(otherFieldCoords.x, otherFieldCoords.y)) {
-            shootCell(otherFieldCoords.x, otherFieldCoords.y, 1);
-        }
-
-    }
-
-    // Don't allow dragging once the game starts
-    if (currentPlayer != -1) {
-        return;
-    }
-
-    // When in drag mode, try to exit
-    if (dragStatus.dragging) {
-        stopDrag();
-        return;
-    }
-    
-    // If the cursor is above a ship, start dragging it
-    for (let ship of ships) {
-        let shipCanvasBounds = ship.getCanvasBounds();
-        if (rectContains(shipCanvasBounds, mouseX, mouseY)) {
-            startDrag(ship, shipCanvasBounds);
-        }
-    }
-}
-
-//#endregion Mouse Interactions
-
-//#region Keyboard
-
-function keyPressed() {
-    // Rotate the current dragged ship when "R" is pressed
-    if (dragStatus.dragging && (key == "r" || key == "R")) {
-        dragStatus.ship.rotate();
-    } else if (currentPlayer == 1) {
-        aiAttack(0);
-    } else if (keyCode == ENTER) {
-        currentPlayer = 0;
-    }
-}
-
-//#endregion Keyboard Interactions
-
 //#region Ship Drag
 
 function startDrag(ship, shipCanvasBounds) {
@@ -426,12 +222,12 @@ function stopDrag() {
         endX: newShipFieldCoords.x + dragStatus.ship.width,
         endY: newShipFieldCoords.y + dragStatus.ship.height
     }
-    
+
     // Check if the ship would land in the field
-    if (!isInFieldBounds(newShipFieldCoords.x, newShipFieldCoords.y)
-        || !isInFieldBounds(newShipFieldCoords.x + dragStatus.ship.width - 1, newShipFieldCoords.y)
-        || !isInFieldBounds(newShipFieldCoords.x, newShipFieldCoords.y + dragStatus.ship.height - 1)
-        || !isInFieldBounds(newShipFieldCoords.x + dragStatus.ship.width - 1, newShipFieldCoords.y + dragStatus.ship.height - 1))
+    if (!isInFieldBounds(newShipFieldCoords.x, newShipFieldCoords.y) ||
+        !isInFieldBounds(newShipFieldCoords.x + dragStatus.ship.width - 1, newShipFieldCoords.y) ||
+        !isInFieldBounds(newShipFieldCoords.x, newShipFieldCoords.y + dragStatus.ship.height - 1) ||
+        !isInFieldBounds(newShipFieldCoords.x + dragStatus.ship.width - 1, newShipFieldCoords.y + dragStatus.ship.height - 1))
         return;
 
     // Check if the ship collides with any other ships
@@ -470,9 +266,9 @@ function boundsIntersect(bounds1, bounds2) {
 // Checks if the coordinates are inside of the field
 function isInFieldBounds(x, y) {
     return rectContains({
-        startX: 0, 
-        startY: 0, 
-        endX: gridSize - 1, 
+        startX: 0,
+        startY: 0,
+        endX: gridSize - 1,
         endY: gridSize - 1
     }, x, y);
 }
@@ -495,7 +291,7 @@ function rotateAroundOrigin(px, py, angle) {
     };
 }
 
-//#endregion Geometry Calculations
+//#endregion Geometry
 
 //#region Canvas
 
