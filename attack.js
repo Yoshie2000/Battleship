@@ -28,6 +28,10 @@ function shootCell(x, y, fieldIndex) {
                 otherFieldData[x][y] = 2;
             }
 
+            let shipData = isShipDead(ship);
+            ship.isDead = shipData.isDead;
+            ship.health = shipData.health;
+
             currentPlayer = (currentPlayer + 1) % 2;
 
             if (currentPlayer == 1) {
@@ -51,6 +55,24 @@ function shootCell(x, y, fieldIndex) {
     }
 
     return true;
+}
+
+function isShipDead(ship) {
+    let shipCells = ship.width * ship.height;
+    let hitCells = 0;
+
+    let shipFieldData = ship.fieldIndex == 0 ? fieldData : otherFieldData;
+    for (let x = ship.fieldX; x < ship.fieldX + ship.width; x++) {
+        for (let y = ship.fieldY; y < ship.fieldY + ship.height; y++) {
+            if (shipFieldData[x][y] == 2) {
+                hitCells++;
+            }
+        }
+    }
+    return {
+        isDead: shipCells == hitCells,
+        health: shipCells - hitCells
+    };
 }
 
 function aiAttack(fieldIndex) {

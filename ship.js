@@ -20,6 +20,9 @@ class Ship {
         this.dragOffsetX = 0;
         this.dragOffsetY = 0;
 
+        this.isDead = false;
+        this.health = width * height;
+
         this.stopDragAnimation = false;
         this.stopDragAnimationTime = 0.1;
         this.stopDragAnimationTimer = 0;
@@ -108,12 +111,11 @@ class Ship {
             for (let shipTileY = this.fieldY; shipTileY < this.fieldY + this.height; shipTileY++) {
 
                 // When dragging, follow the mouse and take the offset into account; otherwise stay at the current tile
-                let canvasCoords = this.dragging || this.stopDragAnimation ? 
-                    {
+                let canvasCoords = this.dragging || this.stopDragAnimation ? {
                         x: this.canvasX + this.dragOffsetX + (shipTileX - this.fieldX) * gridCellSize,
                         y: this.canvasY + this.dragOffsetY + (shipTileY - this.fieldY) * gridCellSize
-                    }
-                    : fieldCoordsToCanvasCoords(shipTileX, shipTileY, this.fieldIndex);
+                    } :
+                    fieldCoordsToCanvasCoords(shipTileX, shipTileY, this.fieldIndex);
                 canvasCoords.x += animationOffset.x;
                 canvasCoords.y += animationOffset.y;
 
@@ -122,19 +124,31 @@ class Ship {
                 strokeWeight(1);
                 fill(0);
 
+                let sizeDifference = 2.5;
+
+                if (this.fieldIndex == 1) {
+                    stroke(0, 0, 0, 0);
+                    fill(0, 0, 0, 0);
+                }
+
+                if (this.isDead) {
+                    stroke(255, 0, 0);
+                    fill(255, 0, 0);
+                }
+
                 // Fill the lines towards the bottom and right
                 if (shipTileY - this.fieldY < this.height - 1 && shipTileX - this.fieldX < this.width - 1) {
-                    rect(canvasCoords.x + 2, canvasCoords.y + 2, gridCellSize, gridCellSize);
+                    rect(canvasCoords.x + sizeDifference, canvasCoords.y + sizeDifference, gridCellSize, gridCellSize);
                 }
                 // Fill the line towards the bottom if another tile will be drawn there
                 else if (shipTileY - this.fieldY < this.height - 1) {
-                    rect(canvasCoords.x + 2, canvasCoords.y + 2, gridCellSize - 4, gridCellSize);
+                    rect(canvasCoords.x + sizeDifference, canvasCoords.y + sizeDifference, gridCellSize - sizeDifference * 2, gridCellSize);
                 }
                 // Fill the line towards the right if another tile will be drawn there
                 else if (shipTileX - this.fieldX < this.width - 1) {
-                    rect(canvasCoords.x + 2, canvasCoords.y + 2, gridCellSize, gridCellSize - 4);
+                    rect(canvasCoords.x + sizeDifference, canvasCoords.y + sizeDifference, gridCellSize, gridCellSize - sizeDifference * 2);
                 } else {
-                    rect(canvasCoords.x + 2, canvasCoords.y + 2, gridCellSize - 4, gridCellSize - 4);
+                    rect(canvasCoords.x + sizeDifference, canvasCoords.y + sizeDifference, gridCellSize - sizeDifference * 2, gridCellSize - sizeDifference * 2);
                 }
 
             }

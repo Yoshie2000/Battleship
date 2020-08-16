@@ -1,23 +1,45 @@
 function getHighestProbabilityCell(fieldIndex) {
     let probabilityMap = getProbabilityMap(fieldIndex);
 
-    let highestIndexX = -1,
-        highestIndexY = -1;
+    let highestIndexArray = [{
+        x: -1,
+        y: -1
+    }];
+
+    let lowestValue = Infinity;
 
     for (let x = 0; x < gridSize; x++) {
         for (let y = 0; y < gridSize; y++) {
-            if (highestIndexX == -1 || highestIndexY == -1 || probabilityMap[x][y] > probabilityMap[highestIndexX][highestIndexY]) {
-                highestIndexX = x;
-                highestIndexY = y;
+            if (highestIndexArray[0].x == -1 || probabilityMap[x][y] > probabilityMap[highestIndexArray[0].x][highestIndexArray[0].y]) {
+                highestIndexArray = [{
+                    x: x,
+                    y: y
+                }];
+            } else if (probabilityMap[x][y] == probabilityMap[highestIndexArray[0].x][highestIndexArray[0].y]) {
+                highestIndexArray.push({
+                    x: x,
+                    y: y
+                });
             }
+
+            if (probabilityMap[x][y] < lowestValue) {
+                lowestValue = probabilityMap[x][y];
+            }
+
         }
     }
+
+    let r = floor(random(highestIndexArray.length));
+    let highestIndexX = highestIndexArray[r].x;
+    let highestIndexY = highestIndexArray[r].y;
 
     return {
         x: highestIndexX,
         y: highestIndexY,
         probability: probabilityMap[highestIndexX][highestIndexY],
-        probabilityMap: probabilityMap
+        probabilityMap: probabilityMap,
+        lowestValue: lowestValue,
+        highestValue: probabilityMap[highestIndexX][highestIndexY]
     };
 }
 
@@ -28,26 +50,59 @@ function getProbabilityMap(fieldIndex) {
     let probabilityMap = createEmptyMap();
     let validPositionCounter = 0;
 
-    for (let i = 0; i <= 1; i++) {
-        for (let shipDataEntry of shipData) {
+    // How many ships are still alive?
+    let aliveShipCount = 0;
+    // How many hits belong to alive ships?
+    let aliveShipHits = 0;
+    for (let shipObject of fieldIndex == 0 ? ships : otherShips) {
+        if (!shipObject.isDead) {
+            aliveShipCount++;
+            aliveShipHits += shipObject.width * shipObject.height - shipObject.health;
+        }
+    }
 
-            let width = i == 0 ? shipDataEntry.width : shipDataEntry.height;
-            let height = i == 0 ? shipDataEntry.height : shipDataEntry.width;
+    for (let i = 0; i <= 1; i++) {
+        for (let shipObject of fieldIndex == 0 ? ships : otherShips) {
+
+            if (shipObject.isDead) {
+                continue;
+            }
+
+            let width = i == 0 ? shipObject.width : shipObject.height;
+            let height = i == 0 ? shipObject.height : shipObject.width;
 
             // Go through all the possible positions for the ship (default rotation)
             for (let x = 0; x < gridSize - width + 1; x++) {
                 for (let y = 0; y < gridSize - height + 1; y++) {
 
                     let positionIsValid = true;
+                    let hitCount = 0;
 
                     // Check for each tile of the ship if it has been hit in the fieldHitData array
                     for (let xTile = 0; xTile < width && positionIsValid; xTile++) {
                         for (let yTile = 0; yTile < height && positionIsValid; yTile++) {
                             let positionBlocked = fieldHitData[x + xTile][y + yTile] == 1;
+                            let belongsToDeadShip = false;
 
-                            if (positionBlocked) {
+                            if (fieldHitData[x + xTile][y + yTile] == 2) {
+
+                                // Check if cell belongs to a dead ship
+                                for (let shipObject of fieldIndex == 0 ? ships : otherShips) {
+                                    let shipBounds = shipObject.getFieldBounds();
+                                    if (rectContainsNoEdges(shipBounds, x + xTile, y + yTile) && shipObject.isDead) {
+                                        belongsToDeadShip = true;
+                                    }
+                                }
+
+                                if (!belongsToDeadShip) {
+                                    hitCount++;
+                                }
+                            }
+
+                            if (positionBlocked || belongsToDeadShip) {
                                 positionIsValid = false;
                             }
+
                         }
                     }
 
@@ -61,7 +116,12 @@ function getProbabilityMap(fieldIndex) {
                                     continue;
                                 }
 
+                                if (aliveShipCount == 1 && aliveShipHits >= 1 && hitCount == 0) {
+                                    continue;
+                                }
+
                                 probabilityMap[x + xTile][y + yTile]++;
+                                probabilityMap[x + xTile][y + yTile] += hitCount * 5;
                             }
                         }
                     }

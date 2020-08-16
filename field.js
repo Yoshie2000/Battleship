@@ -41,16 +41,16 @@ function drawFields() {
     textSize(25);
 
     if (gameOver == 0) {
-        text("You lost! What a shame...", width / 2, 50);
+        text("You lost! What a shame... The game will restart in 5 seconds", width / 2, 50);
     } else if (gameOver == 1) {
-        text("You won! Congratulations!", width / 2, 50);
+        text("You won! Congratulations! The game will restart in 5 seconds", width / 2, 50);
     } else if (currentPlayer == -1) {
         text("You're Player 1. You can move your ships around as you like and rotate them with 'R'", width / 2, 50);
         text("Hit ENTER to start the game", width / 2, 80);
     } else if (currentPlayer == 0) {
         text("It is your turn. Click on any spot on your enemy field to shoot at it", width / 2, 50);
     } else if (currentPlayer == 1) {
-        text("Your enemy is currently choosing his move... Press any key to continue", width / 2, 50);
+        text("Your enemy is currently choosing his move...", width / 2, 50);
     }
 
     for (let i = 0; i < 2; i++) {

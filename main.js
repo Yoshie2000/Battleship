@@ -26,6 +26,8 @@ let gameOver = -1;
 let aiTurnStarted = -1;
 let playerFinished = false;
 
+let showProbabilityOverlay = true;
+
 // The data for how the ships should be generated
 let shipData = [{
         width: 2,
@@ -55,6 +57,8 @@ let dragStatus = {
     dragging: false
 }
 
+let waitAfterGameOver = false;
+
 function setup() {
     // Create a fullscreen canvas
     createCanvas(windowWidth, windowHeight);
@@ -62,6 +66,9 @@ function setup() {
 
     ships = generateRandomShipLayout(0);
     otherShips = generateRandomShipLayout(1);
+
+    fieldData = [];
+    otherFieldData = [];
 
     for (let x = 0; x < gridSize; x++) {
         fieldData.push([]);
@@ -72,9 +79,30 @@ function setup() {
         }
     }
 
+    currentPlayer = -1;
+    gameOver = -1;
+
+    aiTurnStarted = -1;
+    playerFinished = false;
+
+    attackData = [{
+        x: -1,
+        y: -1,
+        i: -1
+    }];
+
+    waitAfterGameOver = false;
+
 }
 
 function draw() {
+
+    if (waitAfterGameOver) {
+        sleep(5000);
+        noLoop();
+        setup();
+        loop();
+    }
 
     if (playerFinished && aiTurnStarted <= frameCount - 20) {
         playerFinished = false;
@@ -84,8 +112,7 @@ function draw() {
     if (currentPlayer != -1) {
         gameOver = checkForGameOver();
         if (gameOver != -1) {
-            console.log("PLAYER " + (gameOver + 1) + " GAME OVER");
-            noLoop();
+            waitAfterGameOver = true;
         }
     }
 
@@ -99,42 +126,39 @@ function draw() {
     for (let ship of ships) {
         ship.draw();
     }
-    /*for (let ship of otherShips) {
+    for (let ship of otherShips) {
         ship.draw();
-    }*/
+    }
 
     // Draw the data
     drawData();
 
     // Draw probability overlay
+    if (gameOver == -1 && showProbabilityOverlay) {
+        let probabilityData = getHighestProbabilityCell(1);
+        let gridCellSize = getGridCellSize();
 
-    let probabilityData = getHighestProbabilityCell(1);
-    let gridCellSize = getGridCellSize();
+        let highestColor = color(255, 0, 255);
+        let lowestColor = color(0, 255, 0);
 
-    let highestColor = color(255, 0, 0);
-    let lowestColor = color(0, 255, 0);
+        for (let x = 0; x < gridSize; x++) {
+            for (let y = 0; y < gridSize; y++) {
+                if (otherFieldData[x][y] != 0)
+                    continue;
 
-    for (let x = 0; x < gridSize; x++) {
-        for (let y = 0; y < gridSize; y++) {
-            if (otherFieldData[x][y] != 0)
-                continue;
+                let coords = fieldCoordsToCanvasCoords(x, y, 1);
 
-            let coords = fieldCoordsToCanvasCoords(x, y, 1);
+                textSize(10);
+                strokeWeight(1);
 
-            textSize(10);
-            strokeWeight(1);
+                let lerpFactor = map(probabilityData.probabilityMap[x][y], probabilityData.lowestValue, probabilityData.highestValue, 0, 1)
+                let currentColor = lerpColor(lowestColor, highestColor, pow(lerpFactor, 5));
 
-            let currentColor = lerpColor(lowestColor, highestColor, pow(probabilityData.probabilityMap[x][y] / probabilityData.probability, 5));
+                stroke(currentColor);
+                fill(currentColor);
 
-            stroke(currentColor);
-            fill(currentColor);
-
-            rect(coords.x + 5, coords.y + 5, gridCellSize - 10, gridCellSize - 10);
-
-            stroke(255);
-            fill(255);
-
-            text(round(probabilityData.probabilityMap[x][y] * 100, 1), coords.x + gridCellSize / 2, coords.y + gridCellSize / 2);
+                rect(coords.x + 5, coords.y + 5, gridCellSize - 10, gridCellSize - 10);
+            }
         }
     }
 
@@ -346,3 +370,11 @@ function getLetter(index) {
 }
 
 //#endregion Canvas Calculations
+
+function sleep(milliseconds) {
+    const date = Date.now();
+    let currentDate = null;
+    do {
+      currentDate = Date.now();
+    } while (currentDate - date < milliseconds);
+  }
