@@ -126,14 +126,14 @@ class Ship {
 
                 let sizeDifference = 2.5;
 
-                if (this.fieldIndex == 1) {
+                if (this.fieldIndex == 1 && !aiVsAi) {
                     stroke(0, 0, 0, 0);
                     fill(0, 0, 0, 0);
                 }
 
                 if (this.isDead) {
-                    stroke(255, 0, 0);
-                    fill(255, 0, 0);
+                    stroke(255, 50, 50);
+                    fill(255, 50, 50);
                 }
 
                 // Fill the lines towards the bottom and right

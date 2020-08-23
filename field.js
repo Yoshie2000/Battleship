@@ -11,11 +11,11 @@ function drawData() {
                 let cellData = i == 0 ? fieldData[x][y] : otherFieldData[x][y];
 
                 if (cellData == 1) {
-                    stroke(0, 255, 0);
+                    stroke(0, 255, 255);
                     strokeWeight(10);
                     point(offset.x + gridCellSize / 2, offset.y + gridCellSize / 2);
                 } else if (cellData == 2) {
-                    stroke(255, 0, 0);
+                    stroke(255, 50, 50);
                     strokeWeight(5);
                     line(offset.x + gridCellSize / 4, offset.y + gridCellSize / 4, offset.x + gridCellSize * 3 / 4, offset.y + gridCellSize * 3 / 4);
                     line(offset.x + gridCellSize / 4, offset.y + gridCellSize * 3 / 4, offset.x + gridCellSize * 3 / 4, offset.y + gridCellSize / 4);
@@ -74,7 +74,9 @@ function drawFields() {
                     text(x + 1, offset.x + gridCellSize / 2, offset.y - gridCellSize / 2);
 
                     if (x == floor(gridSize / 2)) {
-                        text(`Player ${i + 1}`, offset.x, offset.y - gridCellSize * 2);
+                        let movesOfPlayer = getMoveCountOfPlayer(i);
+
+                        text(`Player ${i + 1} (${movesOfPlayer} moves)`, offset.x, offset.y - gridCellSize * 2);
                     }
 
                 }

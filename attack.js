@@ -34,7 +34,7 @@ function shootCell(x, y, fieldIndex) {
 
             currentPlayer = (currentPlayer + 1) % 2;
 
-            if (currentPlayer == 1) {
+            if (currentPlayer == 1|| aiVsAi) {
                 playerFinished = true;
                 aiTurnStarted = frameCount;
             }
@@ -49,7 +49,7 @@ function shootCell(x, y, fieldIndex) {
         otherFieldData[x][y] = 1;
     }
 
-    if (currentPlayer == 1) {
+    if (currentPlayer == 1 || aiVsAi) {
         playerFinished = true;
         aiTurnStarted = frameCount;
     }

@@ -16,8 +16,8 @@ let otherFieldData = [];
 let attackData = [{
     x: -1,
     y: -1,
-    i: -1
-}];
+    i: -1,
+}, ];
 
 // -1: Game hasn't started yet; 0: Player 1; 1: Player 2
 let currentPlayer = -1;
@@ -25,37 +25,40 @@ let gameOver = -1;
 
 let aiTurnStarted = -1;
 let playerFinished = false;
+let aiVsAi = true;
 
-let showProbabilityOverlay = true;
+let showProbabilityOverlay = false;
 
 // The data for how the ships should be generated
 let shipData = [{
         width: 2,
-        height: 1
+        height: 1,
     },
     {
         width: 3,
-        height: 1
+        height: 1,
     },
     {
         width: 3,
-        height: 1
+        height: 1,
     },
     {
         width: 4,
-        height: 1
+        height: 1,
     },
     {
         width: 5,
-        height: 1
-    }
+        height: 1,
+    },
 ];
+
+let numberOfMovesStorage = [];
 
 // Temporary data for dragging ships with the mouse
 let dragStatus = {
     ship: undefined,
-    dragging: false
-}
+    dragging: false,
+};
 
 let waitAfterGameOver = false;
 
@@ -66,6 +69,10 @@ function setup() {
 
     ships = generateRandomShipLayout(0);
     otherShips = generateRandomShipLayout(1);
+
+    if (aiVsAi) {
+        currentPlayer = 0;
+    }
 
     fieldData = [];
     otherFieldData = [];
@@ -88,31 +95,63 @@ function setup() {
     attackData = [{
         x: -1,
         y: -1,
-        i: -1
-    }];
+        i: -1,
+    }, ];
 
     waitAfterGameOver = false;
 
+    frameRate(Infinity);
 }
 
 function draw() {
-
     if (waitAfterGameOver) {
-        sleep(5000);
+        sleep(aiVsAi ? 0 : 5000);
         noLoop();
         setup();
         loop();
+
+        let lowest = Infinity;
+        let highest = -Infinity;
+
+        let totalNumberOfMoves = 0;
+        for (let numberOfMovesStorageEntry of numberOfMovesStorage) {
+            let numberOfMoves = numberOfMovesStorageEntry.player1.hasWon ? numberOfMovesStorageEntry.player1.numberOfMoves : numberOfMovesStorageEntry.player2.numberOfMoves;
+            totalNumberOfMoves += numberOfMoves;
+            if (numberOfMoves <= 17)
+                console.log(numberOfMovesStorageEntry);
+
+            if (numberOfMoves < lowest) {
+                lowest = numberOfMoves;
+            }
+            if (numberOfMoves > highest) {
+                highest = numberOfMoves;
+            }
+        }
+        let averageNumberOfMoves = totalNumberOfMoves / numberOfMovesStorage.length;
+
+        if (numberOfMovesStorage.length % 10 == 0)
+            console.log("Average: " + round(averageNumberOfMoves, 1), "Games played: " + numberOfMovesStorage.length);
     }
 
-    if (playerFinished && aiTurnStarted <= frameCount - 20) {
+    if ((playerFinished || aiVsAi) && aiTurnStarted <= frameCount - (aiVsAi ? 1 : 20)) {
         playerFinished = false;
-        aiAttack(0);
+        aiAttack((currentPlayer + 1) % 2);
     }
 
     if (currentPlayer != -1) {
         gameOver = checkForGameOver();
         if (gameOver != -1) {
             waitAfterGameOver = true;
+            numberOfMovesStorage.push({
+                player1: {
+                    numberOfMoves: getMoveCountOfPlayer(0),
+                    hasWon: gameOver == 1,
+                },
+                player2: {
+                    numberOfMoves: getMoveCountOfPlayer(1),
+                    hasWon: gameOver == 0,
+                },
+            });
         }
     }
 
@@ -139,20 +178,29 @@ function draw() {
         let gridCellSize = getGridCellSize();
 
         let highestColor = color(255, 0, 255);
-        let lowestColor = color(0, 255, 0);
+        let lowestColor = color(0, 255, 255);
 
         for (let x = 0; x < gridSize; x++) {
             for (let y = 0; y < gridSize; y++) {
-                if (otherFieldData[x][y] != 0)
-                    continue;
+                if (otherFieldData[x][y] != 0) continue;
 
                 let coords = fieldCoordsToCanvasCoords(x, y, 1);
 
                 textSize(10);
                 strokeWeight(1);
 
-                let lerpFactor = map(probabilityData.probabilityMap[x][y], probabilityData.lowestValue, probabilityData.highestValue, 0, 1)
-                let currentColor = lerpColor(lowestColor, highestColor, pow(lerpFactor, 5));
+                let lerpFactor = map(
+                    probabilityData.probabilityMap[x][y],
+                    probabilityData.lowestValue,
+                    probabilityData.highestValue,
+                    0,
+                    1
+                );
+                let currentColor = lerpColor(
+                    lowestColor,
+                    highestColor,
+                    pow(lerpFactor, 5)
+                );
 
                 stroke(currentColor);
                 fill(currentColor);
@@ -161,7 +209,6 @@ function draw() {
             }
         }
     }
-
 }
 
 //#region Generation
@@ -170,20 +217,31 @@ function generateRandomShipLayout(fieldIndex) {
     let shipBounds = [];
 
     for (let shipDataEntry of shipData) {
-
         while (true) {
             // Generate random ship bounds
             let horizontal = random(0, 1) > 0.5;
 
             let position = {
-                x: floor(random(0, gridSize - (horizontal ? shipDataEntry.width : shipDataEntry.height))),
-                y: floor(random(0, gridSize - (horizontal ? shipDataEntry.height : shipDataEntry.width)))
+                x: floor(
+                    random(
+                        0,
+                        gridSize - (horizontal ? shipDataEntry.width : shipDataEntry.height)
+                    )
+                ),
+                y: floor(
+                    random(
+                        0,
+                        gridSize - (horizontal ? shipDataEntry.height : shipDataEntry.width)
+                    )
+                ),
             };
             let bounds = {
                 startX: position.x,
                 startY: position.y,
-                endX: position.x + (horizontal ? shipDataEntry.width : shipDataEntry.height),
-                endY: position.y + (horizontal ? shipDataEntry.height : shipDataEntry.width)
+                endX: position.x +
+                    (horizontal ? shipDataEntry.width : shipDataEntry.height),
+                endY: position.y +
+                    (horizontal ? shipDataEntry.height : shipDataEntry.width),
             };
 
             // Check if the bounds collide with any other ship
@@ -200,19 +258,20 @@ function generateRandomShipLayout(fieldIndex) {
                 break;
             }
         }
-
     }
 
     // Generate the ship objects from the bounds
     let ships = [];
     for (let shipBoundary of shipBounds) {
-        ships.push(new Ship(
-            shipBoundary.startX,
-            shipBoundary.startY,
-            shipBoundary.endX - shipBoundary.startX,
-            shipBoundary.endY - shipBoundary.startY,
-            fieldIndex
-        ));
+        ships.push(
+            new Ship(
+                shipBoundary.startX,
+                shipBoundary.startY,
+                shipBoundary.endX - shipBoundary.startX,
+                shipBoundary.endY - shipBoundary.startY,
+                fieldIndex
+            )
+        );
     }
 
     return ships;
@@ -238,20 +297,33 @@ function stopDrag() {
     }
 
     // The bounds of the ship if dragging stopped now
-    let newShipFieldCoords = canvasCoordsToFieldCoords(mouseX + dragStatus.ship.dragOffsetX, mouseY + dragStatus.ship.dragOffsetY);
+    let newShipFieldCoords = canvasCoordsToFieldCoords(
+        mouseX + dragStatus.ship.dragOffsetX,
+        mouseY + dragStatus.ship.dragOffsetY
+    );
 
     let newShipFieldBounds = {
         startX: newShipFieldCoords.x,
         startY: newShipFieldCoords.y,
         endX: newShipFieldCoords.x + dragStatus.ship.width,
-        endY: newShipFieldCoords.y + dragStatus.ship.height
-    }
+        endY: newShipFieldCoords.y + dragStatus.ship.height,
+    };
 
     // Check if the ship would land in the field
     if (!isInFieldBounds(newShipFieldCoords.x, newShipFieldCoords.y) ||
-        !isInFieldBounds(newShipFieldCoords.x + dragStatus.ship.width - 1, newShipFieldCoords.y) ||
-        !isInFieldBounds(newShipFieldCoords.x, newShipFieldCoords.y + dragStatus.ship.height - 1) ||
-        !isInFieldBounds(newShipFieldCoords.x + dragStatus.ship.width - 1, newShipFieldCoords.y + dragStatus.ship.height - 1))
+        !isInFieldBounds(
+            newShipFieldCoords.x + dragStatus.ship.width - 1,
+            newShipFieldCoords.y
+        ) ||
+        !isInFieldBounds(
+            newShipFieldCoords.x,
+            newShipFieldCoords.y + dragStatus.ship.height - 1
+        ) ||
+        !isInFieldBounds(
+            newShipFieldCoords.x + dragStatus.ship.width - 1,
+            newShipFieldCoords.y + dragStatus.ship.height - 1
+        )
+    )
         return;
 
     // Check if the ship collides with any other ships
@@ -284,25 +356,43 @@ function boundsIntersect(bounds1, bounds2) {
     let leftEdge2 = bounds2.startX;
     let bottomEdge2 = bounds2.startY;
 
-    return leftEdge1 < rightEdge2 && rightEdge1 > leftEdge2 && bottomEdge1 < topEdge2 && topEdge1 > bottomEdge2;
+    return (
+        leftEdge1 < rightEdge2 &&
+        rightEdge1 > leftEdge2 &&
+        bottomEdge1 < topEdge2 &&
+        topEdge1 > bottomEdge2
+    );
 }
 
 // Checks if the coordinates are inside of the field
 function isInFieldBounds(x, y) {
     return rectContains({
-        startX: 0,
-        startY: 0,
-        endX: gridSize - 1,
-        endY: gridSize - 1
-    }, x, y);
+            startX: 0,
+            startY: 0,
+            endX: gridSize - 1,
+            endY: gridSize - 1,
+        },
+        x,
+        y
+    );
 }
 
 function rectContains(bounds, x, y) {
-    return bounds.startX <= x && bounds.startY <= y && bounds.endX >= x && bounds.endY >= y;
+    return (
+        bounds.startX <= x &&
+        bounds.startY <= y &&
+        bounds.endX >= x &&
+        bounds.endY >= y
+    );
 }
 
 function rectContainsNoEdges(bounds, x, y) {
-    return bounds.startX <= x && bounds.startY <= y && bounds.endX > x && bounds.endY > y;
+    return (
+        bounds.startX <= x &&
+        bounds.startY <= y &&
+        bounds.endX > x &&
+        bounds.endY > y
+    );
 }
 
 function rotateAroundOrigin(px, py, angle) {
@@ -311,7 +401,7 @@ function rotateAroundOrigin(px, py, angle) {
     let sin = Math.sin(radians);
     return {
         x: px * cos + py * sin,
-        y: py * cos + px * sin
+        y: py * cos + px * sin,
     };
 }
 
@@ -322,18 +412,18 @@ function rotateAroundOrigin(px, py, angle) {
 function getOffset(fieldIndex) {
     let gridCellSize = getGridCellSize();
 
-    let xOffset = (width - (gridCellSize * gridSize)) / 2;
-    let yOffset = (height - (gridCellSize * gridSize)) / 2;
+    let xOffset = (width - gridCellSize * gridSize) / 2;
+    let yOffset = (height - gridCellSize * gridSize) / 2;
 
     if (fieldIndex == 0 || fieldIndex == undefined) {
-        xOffset -= gridSize * gridCellSize / 2 + 50;
+        xOffset -= (gridSize * gridCellSize) / 2 + 50;
     } else {
-        xOffset += gridSize * gridCellSize / 2 + 50;
+        xOffset += (gridSize * gridCellSize) / 2 + 50;
     }
 
     return {
         x: xOffset,
-        y: yOffset
+        y: yOffset,
     };
 }
 
@@ -344,7 +434,7 @@ function fieldCoordsToCanvasCoords(x, y, fieldIndex) {
 
     return {
         x: x * gridCellSize + offset.x,
-        y: y * gridCellSize + offset.y
+        y: y * gridCellSize + offset.y,
     };
 }
 
@@ -354,8 +444,10 @@ function canvasCoordsToFieldCoords(x, y, floorResult, fieldIndex) {
     let offset = getOffset(fieldIndex);
 
     return {
-        x: floorResult ? floor((x - offset.x) / gridCellSize) : round((x - offset.x) / gridCellSize),
-        y: floorResult ? floor((y - offset.y) / gridCellSize) : round((y - offset.y) / gridCellSize)
+        x: floorResult ?
+            floor((x - offset.x) / gridCellSize) : round((x - offset.x) / gridCellSize),
+        y: floorResult ?
+            floor((y - offset.y) / gridCellSize) : round((y - offset.y) / gridCellSize),
     };
 }
 
@@ -375,6 +467,16 @@ function sleep(milliseconds) {
     const date = Date.now();
     let currentDate = null;
     do {
-      currentDate = Date.now();
+        currentDate = Date.now();
     } while (currentDate - date < milliseconds);
-  }
+}
+
+function getMoveCountOfPlayer(playerIndex) {
+    let movesOfPlayer = 0;
+    for (let attackDataEntry of attackData) {
+        if (attackDataEntry.i == 1 - playerIndex) {
+            movesOfPlayer++;
+        }
+    }
+    return movesOfPlayer;
+}
