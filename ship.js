@@ -126,7 +126,7 @@ class Ship {
 
                 let sizeDifference = 2.5;
 
-                if (this.fieldIndex == 1 && !aiVsAi) {
+                if (this.fieldIndex == 1 && !aiVsAi && gameOver == -1) {
                     stroke(0, 0, 0, 0);
                     fill(0, 0, 0, 0);
                 }

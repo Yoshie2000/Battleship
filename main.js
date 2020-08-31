@@ -25,7 +25,9 @@ let gameOver = -1;
 
 let aiTurnStarted = -1;
 let playerFinished = false;
-let aiVsAi = true;
+let aiVsAi = false;
+
+let aiAlgorithm = "probability";
 
 let showProbabilityOverlay = false;
 
@@ -62,10 +64,50 @@ let dragStatus = {
 
 let waitAfterGameOver = false;
 
+let defaultFont;
+
+let buttons = [];
+
+function preload() {
+    defaultFont = loadFont("Roboto.ttf");
+}
+
 function setup() {
     // Create a fullscreen canvas
     createCanvas(windowWidth, windowHeight);
     fullscreen();
+
+    textFont(defaultFont);
+
+    buttons = [];
+    buttons.push(new Button(aiVsAi ? "Player vs AI" : "AI vs AI", color(50, 50, 50), {startX: 10, startY: 10, endX: 110, endY: 50}, () => {
+        aiVsAi = !aiVsAi;
+        setup();
+    }));
+    buttons.push(new Button("Start the game", color(50, 50, 50), {startX: width / 2 - 75, endX: width / 2 + 75, startY: 80, endY: 120}, () => {
+        if (currentPlayer == -1) {
+            currentPlayer = 0;
+        }
+    }, () => currentPlayer == -1));
+    buttons.push(new Button("Start a new game", color(50, 50, 50), {startX: width / 2 - 75, endX: width / 2 + 75, startY: 80, endY: 120}, () => {
+        if (gameOver != -1) {
+            currentPlayer = 0;
+            gameOver = -1;
+            setup();
+        }
+    }, () => gameOver != -1));
+    buttons.push(new Button("Toggle probability overlay", color(50, 50, 50), {startX: width - 220, endX: width - 10, startY: 10, endY: 50}, () => {
+        showProbabilityOverlay = !showProbabilityOverlay;
+    }));
+
+    buttons.push(new Button("Probability", color(50, 50, 50), {startX: 10, startY: height - 50, endX: 130, endY: height - 10}, () => {
+        aiAlgorithm = "probability";
+        setup();
+    }));
+    buttons.push(new Button("Random", color(50, 50, 50), {startX: 10, startY: height - 100, endX: 130, endY: height - 60}, () => {
+        aiAlgorithm = "random";
+        setup();
+    }));
 
     ships = generateRandomShipLayout(0);
     otherShips = generateRandomShipLayout(1);
@@ -100,12 +142,13 @@ function setup() {
 
     waitAfterGameOver = false;
 
-    frameRate(Infinity);
+    frameRate(aiVsAi ? Infinity : 60);
 }
 
 function draw() {
+    cursor("default");
+
     if (waitAfterGameOver) {
-        sleep(aiVsAi ? 0 : 5000);
         noLoop();
         setup();
         loop();
@@ -117,8 +160,6 @@ function draw() {
         for (let numberOfMovesStorageEntry of numberOfMovesStorage) {
             let numberOfMoves = numberOfMovesStorageEntry.player1.hasWon ? numberOfMovesStorageEntry.player1.numberOfMoves : numberOfMovesStorageEntry.player2.numberOfMoves;
             totalNumberOfMoves += numberOfMoves;
-            if (numberOfMoves <= 17)
-                console.log(numberOfMovesStorageEntry);
 
             if (numberOfMoves < lowest) {
                 lowest = numberOfMoves;
@@ -133,7 +174,7 @@ function draw() {
             console.log("Average: " + round(averageNumberOfMoves, 1), "Games played: " + numberOfMovesStorage.length);
     }
 
-    if ((playerFinished || aiVsAi) && aiTurnStarted <= frameCount - (aiVsAi ? 1 : 20)) {
+    if ((playerFinished || aiVsAi) && aiTurnStarted <= frameCount - (aiVsAi ? 5 : 20)) {
         playerFinished = false;
         aiAttack((currentPlayer + 1) % 2);
     }
@@ -141,7 +182,8 @@ function draw() {
     if (currentPlayer != -1) {
         gameOver = checkForGameOver();
         if (gameOver != -1) {
-            waitAfterGameOver = true;
+            if (aiVsAi)
+                waitAfterGameOver = true;
             numberOfMovesStorage.push({
                 player1: {
                     numberOfMoves: getMoveCountOfPlayer(0),
@@ -154,9 +196,13 @@ function draw() {
             });
         }
     }
-
+    
     // Blue background
     background(0, 90, 180);
+
+    for (let button of buttons) {
+        button.draw();
+    }
 
     // Draw the field
     drawFields();
@@ -173,7 +219,7 @@ function draw() {
     drawData();
 
     // Draw probability overlay
-    if (gameOver == -1 && showProbabilityOverlay) {
+    if (gameOver == -1 && showProbabilityOverlay && !aiVsAi) {
         let probabilityData = getHighestProbabilityCell(1);
         let gridCellSize = getGridCellSize();
 

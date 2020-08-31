@@ -76,13 +76,15 @@ function isShipDead(ship) {
 }
 
 function aiAttack(fieldIndex) {
-    let highestProbabilityCell = getHighestProbabilityCell(fieldIndex);
-    shootCell(highestProbabilityCell.x, highestProbabilityCell.y, fieldIndex);
 
-    // Randomly hit an unhit cell
-    //while (!shootCell(floor(random(gridSize)), floor(random(gridSize)), fieldIndex)) {
-    //    console.log("already hit");
-    //}
+    if (aiAlgorithm == "probability") {
+        let highestProbabilityCell = getHighestProbabilityCell(fieldIndex);
+        shootCell(highestProbabilityCell.x, highestProbabilityCell.y, fieldIndex);
+    } else if (aiAlgorithm == "random") {
+        while (!shootCell(floor(random(gridSize)), floor(random(gridSize)), fieldIndex)) {
+            console.log("already hit");
+        }
+    }
 }
 
 function checkForGameOver() {
